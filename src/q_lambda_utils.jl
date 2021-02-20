@@ -1,12 +1,10 @@
 #SARSA-lambda implementation of tracking problem
-#Goldfrank 2020
+#Goldfrank 2021
 
 ######################################
 ### imports
 ######################################
 
-#using ParticleFilters
-#using Distributions
 using StaticArrays
 using LinearAlgebra
 using Random
@@ -16,7 +14,6 @@ using DataStructures
 using DataFrames
 using CSV
 using ArgParse
-using Plots
 using Dates
 
 
@@ -57,9 +54,6 @@ function parse_commandline()
         "--outfile"
             help = ""
             default = "sarsa_lambda.csv"
-        "--plot_header"
-            help = ""
-            default = "out"
         "--determ"
             help = ""
             default = "false"
@@ -178,38 +172,13 @@ function f2(x, u, rng)
     return temp
 end
 
-#build plot, including particles and grid
-# returns a plot given state, particle filter, grid interpolants, and grid
-function build_plot(xp, b, ξ, grid=grid)
-    grid_r, grid_theta = [],[]
-    plot_r = [row[1] for row in particles(b)]
-    plot_theta = [row[2] for row in particles(b)]*π/180
-    plot_x_theta = xp[2]*π/180
-    plot_x_r = xp[1]
-
-    for i in ξ.nzind
-        coords = ind2x(grid,i)
-        push!(grid_r, coords[1])
-        push!(grid_theta, coords[2]*π/180)
-    end
-
-    plt = plot(proj=:polar, lims=(0,200), size=(1000,1000))
-    scatter!([grid_theta], [grid_r], label="grid", color=:blue)
-    scatter!(plot_theta, plot_r, label="particles", markershape=:+, seriescolor=:black,markeralpha=.3,markersize=3)
-    scatter!([plot_x_theta], [plot_x_r],label="location", seriescolor=:red, markershape=:diamond, markersize=5)
-
-    return plt
-end
-
-
-
 ###########################################
 ## Implements Q-Lambda Learning Algorithm
 ###########################################
 totals = [0.0]
 
 function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
-    burn_in_length=burn_in_length, plotting=plotting)
+    burn_in_length=burn_in_length)
     e = sparse(zeros(length(grid),6))
     x = [rand(rng, 30:135), rand(rng,0:359), rand(rng,0:11)*30, 1, 1];
     xp = x
@@ -231,7 +200,6 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
     loss = 0
 
     burn_in = true
-    plots = []
 
     i = 0
     counter = false
@@ -284,10 +252,6 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
             zoof = 1
         end
 
-        #PLOTTING
-        if plotting
-            push!(plots, build_plot(xp, b, ξ))
-        end
         i += 1
         if (i == (trial_length + burn_in_length)) && xp[1] > 160 && counter == false
             i -= 10
@@ -299,11 +263,11 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         loss = 1
     end
 
-    return (collisions, loss, θ, cum_rew, plots)
+    return (collisions, loss, θ, cum_rew)
 end
 
 function q_trial_no_variance(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
-    burn_in_length=burn_in_length, plotting=plotting)
+    burn_in_length=burn_in_length)
     e = sparse(zeros(length(grid),6))
     x = [rand(rng, 30:135), rand(rng,0:359), rand(rng,0:11)*30, 1];
     xp = x
@@ -325,7 +289,6 @@ function q_trial_no_variance(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, 
     loss = 0
 
     burn_in = true
-    plots = []
 
     i = 0
     counter = false
@@ -378,10 +341,6 @@ function q_trial_no_variance(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, 
             zoof = 1
         end
 
-        #PLOTTING
-        if plotting
-            push!(plots, build_plot(xp, b, ξ))
-        end
         i += 1
         if (i == (trial_length + burn_in_length)) && xp[1] > 160 && counter == false
             i -= 10
@@ -393,12 +352,12 @@ function q_trial_no_variance(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, 
         loss = 1
     end
 
-    return (collisions, loss, θ, cum_rew, plots)
+    return (collisions, loss, θ, cum_rew)
 end
 
 # trial with random actions - for calibration only
 function simple_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
-    burn_in_length=burn_in_length, plotting=plotting, quant = QUANTILE, action=DETERM_ACTION)
+    burn_in_length=burn_in_length, quant = QUANTILE, action=DETERM_ACTION)
     e = sparse(zeros(4,6))
     x = [rand(rng, 25:135), rand(rng,0:359), rand(rng,0:11)*30, 1];
     xp = x
@@ -422,7 +381,6 @@ function simple_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, 
     loss = 0
 
     burn_in = true
-    plots = []
 
     for i in 1:(trial_length + burn_in_length)
         #observe reward and new state
@@ -474,25 +432,17 @@ function simple_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, 
 
         x = xp
 
-        #if length(particles(b)) != N
-        #    println("PARTICLE FILTER SIZE ERROR: ", length(particles(b)))
-        #end
-
         if xp[1] < 10
             zoof = 1
         end
 
-        #PLOTTING
-        #if plotting
-        #    push!(plots, build_plot(xp, b, ξ))
-        #end
     end
     collisions += zoof
     if xp[1] > 160
         loss = 1
     end
 
-    return (collisions, loss, θ, cum_rew, plots)
+    return (collisions, loss, θ, cum_rews)
 end
 
 #

@@ -12,7 +12,6 @@ using DataStructures
 using DataFrames
 using CSV
 using ArgParse
-using Plots
 using Dates
 
 
@@ -48,9 +47,6 @@ function parse_commandline()
         "--iterations"
             help = ""
             default = "2000"
-        "--plot_header"
-            help = ""
-            default = "out"
     end
 
     return parse_args(s)
@@ -380,7 +376,7 @@ end
 # Trial
 ##################################################################
 lambda = 0.95
-function mcts_trial(depth, c, plotting=false, num_particles=num_particles, iterations=iterations)
+function mcts_trial(depth, c, num_particles=num_particles, iterations=iterations)
 
 
 
@@ -428,7 +424,6 @@ function mcts_trial(depth, c, plotting=false, num_particles=num_particles, itera
 
     # 500 time steps with an action to be selected at each
     num_iters = 500
-    plots = []
     for time_step = 1:num_iters
 
         #if time_step % 100 == 0
@@ -462,11 +457,6 @@ function mcts_trial(depth, c, plotting=false, num_particles=num_particles, itera
             total_col = 1
         end
 
-
-        if plotting
-            push!(plots, build_plot(true_state, belief))
-        end
-
         # TODO: flags for collision, lost track, end of simulation lost track
 
     end
@@ -474,7 +464,7 @@ function mcts_trial(depth, c, plotting=false, num_particles=num_particles, itera
     if true_state[1] > 150
         total_loss = 1
     end
-    return (total_reward, plots, total_col, total_loss)
+    return (total_reward, false, total_col, total_loss)
 
 end
 

@@ -3,10 +3,6 @@
 include("observations.jl")
 include("mcts_utils.jl")
 
-# initialize Julia plotting environment
-pyplot()
-Plots.PyPlotBackend()
-
 global_start_time = now()
 
 #seed random number generator (rng)
@@ -23,7 +19,6 @@ iterations = parse(Int64, arguments["iterations"])
 COLLISION_REWARD = parse(Float64, arguments["collision"])
 LOSS_REWARD = parse(Float64, arguments["loss"])
 
-plotting = false
 testing = false
 epochsize = 500
 
@@ -63,7 +58,7 @@ run_times = []
 for i = 1:num_runs
     run_start_time = now()
     global mcts_loss, mcts_coll, num_particles, DEPTH
-    result = mcts_trial(DEPTH, 20, false, num_particles)
+    result = mcts_trial(DEPTH, 20, num_particles)
     mcts_coll += result[3]
     mcts_loss += result[4]
     push!(run_data,result[3:4])

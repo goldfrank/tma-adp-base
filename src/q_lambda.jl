@@ -5,12 +5,7 @@ include("observations.jl")
 include("polar_interpolation.jl")
 include("q_lambda_utils.jl")
 
-# initialize Julia plotting environment
-pyplot()
-Plots.PyPlotBackend()
-
 #time string for saving files
-
 now_string = string(now())
 global_start_time = string(now_string[1:4], "_", now_string[6:7], now_string[9:13], "_", now_string[15:16], "_", now_string[18:19])
 #global_start_time = string(now())
@@ -34,7 +29,6 @@ LOSS_REWARD = parse(Float64, arguments["loss"])
 EPSILON = ϵ
 λ = parse(Float64, arguments["lambda"])
 num_runs = parse(Int64, arguments["trials"])
-plotting = false
 testing = false
 epochsize = 500
 burn_in_length = 15
@@ -76,14 +70,13 @@ cum_loss = 0
 cum_trials = 0
 total_reward = 0
 best_average = 1
-plotting_this_round = false
 
 run_times = []
 # q-lambda algorithm trials
 for i in 1:num_runs
     run_start_time = now()
     global ϵ, EPSILON
-    global plotting, plotting_this_round, variance_enabled
+    global variance_enabled
     global testing
     global cum_coll, cum_loss, cum_trials, run_data
     global total_reward,  best_average
@@ -93,7 +86,6 @@ for i in 1:num_runs
     else
         result = q_trial_no_variance()
     end
-
 
     cum_coll += result[1]
     cum_loss += result[2]
@@ -113,18 +105,6 @@ for i in 1:num_runs
         println("θ Max: ", maximum(θ), " -- θ Min: ", minimum(θ))
     end
 
-    if plotting_this_round
-        println("PLOTTING")
-        plots = result[5]
-        if (result[1] == 1) || (result[2] == 1) || true
-            name = string("plots/out_", i,".gif")
-            anim = @animate for i in 1:length(plots)
-                plot!(plots[i])
-                fps=10
-            end
-            gif(anim, name, fps=10)
-        end
-    end
     push!(run_times, (now()-run_start_time).value)
     if i % 5 == 0
         weights_frame = DataFrame(θ)
@@ -150,11 +130,6 @@ for i in 1:num_runs
 
     end
 
-    if cum_trials % 100 == 15
-        plotting_this_round = plotting
-    else
-        plotting = false
-    end
 
     #used for variable epsilon-greedy strategy only
     #ϵ = max(min(.8, (cum_coll+cum_loss)/i),.005)
