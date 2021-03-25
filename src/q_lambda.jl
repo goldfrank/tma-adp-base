@@ -6,9 +6,9 @@ include("polar_interpolation.jl")
 include("q_lambda_utils.jl")
 
 #time string for saving files
-now_string = string(now())
-global_start_time = string(now_string[1:4], "_", now_string[6:7], now_string[9:13], "_", now_string[15:16], "_", now_string[18:19])
-#global_start_time = string(now())
+#now_string = string(now())
+#global_start_time = string(now_string[1:4], "_", now_string[6:7], now_string[9:13], "_", now_string[15:16], "_", now_string[18:19])
+global_start_time = string(now())
 
 
 #seed random number generator (rng)
@@ -32,6 +32,8 @@ num_runs = parse(Int64, arguments["trials"])
 testing = false
 epochsize = 500
 burn_in_length = 15
+results_dir = arguments["results_dir"]
+println("Writing results to: ", results_dir)
 
 # input file for weights (theta)
 infile = arguments["theta"]
@@ -46,8 +48,9 @@ else
 end
 
 #output header file
-outfile = string(global_start_time, "_weights.csv")
+outfile = string(results_dir, global_start_time, "_weights.csv")
 header_string = string("Q-Lambda Run: ", global_start_time)
+header_string = string(header_string, "\n", "Lambda: ", λ)
 header_string = string(header_string, "\n", "Gamma: ", γ)
 header_string = string(header_string, "\n", "Alpha: ", α)
 header_string = string(header_string, "\n", "N: ", N)
@@ -56,7 +59,7 @@ header_string = string(header_string, "\n", "Loss Reward: ", LOSS_REWARD)
 header_string = string(header_string, "\n", "Variance: ", variance_enabled)
 
 #write output header
-header_filename = string(global_start_time, "_header.txt")
+header_filename = string(results_dir, global_start_time, "_header.txt")
 open(header_filename, "w") do f
     write(f, header_string)
 end
@@ -109,7 +112,7 @@ for i in 1:num_runs
     if i % 5 == 0
         weights_frame = DataFrame(θ)
         CSV.write(outfile, weights_frame)
-        namefile = string(global_start_time, "_data.csv")
+        namefile = string(results_dir, global_start_time, "_data.csv")
         CSV.write(namefile, DataFrame(run_data))
         updated_header = string(header_string, "\nAverage Runtime: ", mean(run_times))
         CSV.write(namefile, DataFrame(run_data))

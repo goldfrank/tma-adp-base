@@ -57,6 +57,9 @@ function parse_commandline()
         "--determ"
             help = ""
             default = "false"
+        "--results_dir"
+            help = ""
+            default = "../results/"
     end
 
     return parse_args(s)

@@ -48,7 +48,7 @@ function obs0(state)
     end
     if (!(obs1(state) > 0) && !(obs2(state) > 0) && !(obs3(state) > 0))
         return 1::Int64
-    elseif ((60 <= rel_brg < 300) && (SENSOR_RANGE/2 <= range < SENSOR_RANGE)
+    elseif ((60 <= rel_brg < 300) && (SENSOR_RANGE/2 <= range < SENSOR_RANGE))
         return 2*range/SENSOR_RANGE - 1
     end
     return 0::Int64

@@ -47,6 +47,12 @@ function parse_commandline()
         "--iterations"
             help = ""
             default = "2000"
+        "--c"
+            help = ""
+            default = "20"
+        "--results_dir"
+            help = ""
+            default = "../results/"
     end
 
     return parse_args(s)
@@ -375,8 +381,8 @@ end
 ##################################################################
 # Trial
 ##################################################################
-lambda = 0.95
-function mcts_trial(depth, c, num_particles=num_particles, iterations=iterations)
+
+function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iterations=iterations)
 
 
 
