@@ -1,5 +1,5 @@
-#!/bin/bash
-# rsync script
+#!/bin/fish
+# q_lambda script
 
 set inner_folder (date | sed 's/ //g' | sed 's/://g')"/"
 echo $inner_folder
