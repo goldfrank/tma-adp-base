@@ -15,6 +15,7 @@ using ArgParse
 using Dates
 
 
+
 # parse command line arguments
 function parse_commandline()
     s = ArgParseSettings()
@@ -53,6 +54,12 @@ function parse_commandline()
         "--results_dir"
             help = ""
             default = "../results/"
+        "--start"
+            help = ""
+            default = "false"
+        "--hist"
+            help = ""
+            default = "false"
     end
 
     return parse_args(s)
@@ -382,7 +389,7 @@ end
 # Trial
 ##################################################################
 
-function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iterations=iterations)
+function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iterations=iterations; start=false, hist=false)
 
 
 
@@ -390,11 +397,21 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
     #num_particles = 500
     model = ParticleFilterModel{Vector{Float64}}(f2, g)
     pfilter = SIRParticleFilter(model, num_particles)
+    action_hist = []
+    state_hist = []
 
     # true state
     # state is [range, bearing, relative course, own speed]
     # assume a starting position within range of sensor and not too close
-    true_state = [rand(rng, 25:100), rand(rng,0:359), rand(rng,0:11)*30, 1]
+    if start == false || start == "false"
+        println("Using random starting state")
+        true_state = [rand(rng, 25:100), rand(rng,0:359), rand(rng,0:11)*30, 1]
+        start = copy(true_state)
+    else
+        #println("Using starting state: ", start)
+        true_state = copy(start)
+    end
+    push!(state_hist, true_state)
 
     # belief state
     # assume perfect knowledge at first time step
@@ -446,13 +463,22 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
 
 
         # select an action
+
         (Q, N, action) = select_action(Q, N, belief, depth, c, iterations)
 
         # take action; get next true state, obs, and reward
-        next_state = f2(true_state, action, rng)
+        if hist == false || hist == "false"
+            next_state = f2(true_state, action, rng)
+            #println("random next state: ", next_state)
+        else
+            next_state = hist[!, time_step + 1]
+            #println("next state: ", next_state)
+        end
+
         observation = h(next_state, rng)
         reward = r(Tuple(next_state), action_to_index(action))
         true_state = next_state
+        push!(state_hist, true_state)
 
         # update belief state (particle filter)
         belief = update(pfilter, belief, action, observation)
@@ -463,6 +489,7 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
             total_col = 1
         end
 
+        push!(action_hist, action)
         # TODO: flags for collision, lost track, end of simulation lost track
 
     end
@@ -470,7 +497,7 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
     if true_state[1] > 150
         total_loss = 1
     end
-    return (total_reward, false, total_col, total_loss)
+    return (total_reward, false, total_col, total_loss, start, action_hist, state_hist)
 
 end
 

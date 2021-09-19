@@ -1,9 +1,0 @@
-MCTS Run: 2021-02-22T19:58:05.309
-Depth: 5
-N: 100
-Lambda: 0.9
-Iterations: 200
-Collision Reward: -2.0
-Loss Reward: -2.0
-c: 55.0
-Average Runtime: 8097.791
