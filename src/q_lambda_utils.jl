@@ -29,13 +29,13 @@ function parse_commandline()
             default = "0.9"
         "--alpha"
             help = ""
-            default = "0.7"
+            default = "0.9"
         "--gamma"
             help = ""
             default = "0.9"
         "--epsilon"
             help = ""
-            default = "0.1"
+            default = "0.05"
         "--collision"
             help = ""
             default = "-2"
@@ -60,6 +60,12 @@ function parse_commandline()
         "--results_dir"
             help = ""
             default = "../results/"
+        "--start"
+            help = ""
+            default = "false"
+        "--hist"
+            help = ""
+            default = "false"
     end
 
     return parse_args(s)
@@ -91,7 +97,7 @@ end
 
 # state as tuple (x, y, crs, spd) of target (spd of o/s)
 # returns next state as a function of current state and control(action)
-function f(state, control, rng)
+function f(state, control, rng; input_crs="no", report_crs=false)
     TGT_SPD = 1
     r, θ, crs, spd = state
     spd = control[2]
@@ -100,6 +106,17 @@ function f(state, control, rng)
     θ -= control[1]
     θ = θ % 360
     if θ < 0 θ += 360 end
+
+    old_crs = crs
+
+    if input_crs == "no"
+        crs = next_crs(crs,rng)
+    else
+        crs = (crs + input_crs) % 360
+        if crs < 0 crs += 360 end
+    end
+    output_crs = (crs - old_crs) % 360
+    if output_crs < 0 output_crs += 360 end
 
     crs = crs % 360
     crs -= control[1]
@@ -111,12 +128,16 @@ function f(state, control, rng)
 
     pos = [x + TGT_SPD*cos(π/180*crs) - spd, y +
         TGT_SPD*sin(π/180*crs)]
-    crs = next_crs(crs,rng)
+    #crs = next_crs(crs,rng)
 
     r = sqrt(pos[1]^2 + pos[2]^2)
-    θ = atan(pos[2],pos[1])*180/π
+    θ = atan(pos[1],pos[2])*180/π
     if θ < 0 θ += 360 end
-    return (r, θ, crs, spd)::NTuple{4, Real}
+
+    if report_crs == false
+        return (r, θ, crs, spd)::NTuple{4, Real}
+    end
+        return (r, θ, crs, spd, output_crs)::NTuple{5, Real}
 end
 #
 ACTION_PENALTY = -.05
@@ -170,8 +191,8 @@ function action_index(action)
 end
 
 # returns vector rather than Tuple, for particle filter
-function f2(x, u, rng)
-    temp = [i for i in f(x, u, rng)]
+function f2(x, u, rng; input_crs="no", report_crs=false)
+    temp = [i for i in f(x, u, rng, input_crs=input_crs, report_crs=report_crs)]
     return temp
 end
 
@@ -181,14 +202,32 @@ end
 totals = [0.0]
 
 function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
-    burn_in_length=burn_in_length)
+    burn_in_length=burn_in_length; start=false, hist=false)
+    state_hist = []
+    crs_hist = []
     e = sparse(zeros(length(grid),6))
-    x = [rand(rng, 30:135), rand(rng,0:359), rand(rng,0:11)*30, 1, 1];
+
+    if start == false || start == "false"
+        println("Using random starting state")
+        true_state = [rand(rng, 25:100), rand(rng,0:359), rand(rng,0:11)*30, 1]
+        start = copy(true_state)
+    else
+        true_state = copy(start)
+    end
+    push!(state_hist, true_state)
+
+
+    x = true_state
+
     xp = x
     y = h(xp, rng)
     b = ParticleCollection([x[1:4] for i in 1:N])
     ξ = sparse(weighted_grid_2(b)/N)
     particle_collection = []
+    action_hist = []
+    state_hist = []
+
+
     starting_x = x
 
     cur = 0
@@ -210,7 +249,18 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         #observe reward and new state
         rew = r(Tuple(xp),u)
         #b = update(pfilter, b, actions()[u], y)
-        xp = f2(x, actions()[u], rng)
+
+        if hist == false || hist == "false"
+            next_state = f2(x, actions()[u], rng, report_crs=true)
+            #println("random next state: ", next_state)
+        else
+            next_state = f2(x, actions()[u], rng, input_crs=hist[i+1], report_crs=true)
+            #println("next state: ", next_state)
+        end
+        push!(crs_hist, next_state[5])
+        xp = next_state[1:4]
+
+        # xp = f2(x, actions()[u], rng)
 
         y = h(xp, rng)
         b = update(pfilter, b, actions()[u], y)
@@ -246,6 +296,7 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         last = transpose(θ[:,uu[1]])*ξ
 
         x = xp
+        push!(state_hist, copy(x))
 
         if length(particles(b)) != N
             println("PARTICLE FILTER SIZE ERROR: ", length(particles(b)))
@@ -256,17 +307,17 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         end
 
         i += 1
-        if (i == (trial_length + burn_in_length)) && xp[1] > 160 && counter == false
-            i -= 10
-            counter = true
-        end
+        # if (i == (trial_length + burn_in_length)) && xp[1] > 160 && counter == false
+        #     i -= 10
+        #     counter = true
+        # end
     end
     collisions += zoof
     if xp[1] > 160
         loss = 1
     end
 
-    return (collisions, loss, θ, cum_rew)
+    return (collisions, loss, θ, cum_rew, state_hist, crs_hist)
 end
 
 function q_trial_no_variance(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,

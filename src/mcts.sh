@@ -4,14 +4,30 @@
 set inner_folder (date | sed 's/ //g' | sed 's/://g')"/"
 echo $inner_folder
 set folder "../results/"$inner_folder
-echo $folder
+#echo $folder
 mkdir $folder
+set filename ../starts/run
 
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run1.csv" --hist "false" &
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run2.csv" --hist "false" &
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run3.csv" --hist "false" &
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run4.csv" --hist "false" &
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run5.csv" --hist "false" &
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run6.csv" --hist "false" &
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run7.csv" --hist "false" &
-julia --project=.. mcts.jl --trials 10 --N 500 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start "../starts/run8.csv" --hist "false" 
+# set trials 10
+# for n in 250 500 750 1000
+#   for c in 0.9 1.0 1.1
+#     for l in 0.85 0.9 0.95
+#       for d in 5 7 10
+#         set folder "../results/"$inner_folder"d_"$d"_l_"$l"_c_"$c"_n_"$n"/"
+#         mkdir $folder
+#         echo $folder
+#         for i in 1 2 3 4 5 6 7 8
+#           date
+#           echo "Running N = " $n "   c =" $c "   lambda = " $l "  delta = " $d
+#           set in_name "$filename$i.csv"
+#           julia --project=.. mcts.jl --trials $trials --N $n --depth $d --iterations 500 --c 1 --lambda $l --results_dir $folder --start $in_name --hist "false" &
+#         end
+#       end
+#       wait
+#     end
+#   end
+# end
+
+set i '1.csv'
+julia --project=.. mcts.jl --trials 1 --N 250 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start false --hist "../starts/crs.csv"
+#julia --project=.. mcts.jl --trials 1 --N 250 --depth 5 --iterations 500 --c 1 --lambda 0.95 --results_dir $folder --start false --hist false

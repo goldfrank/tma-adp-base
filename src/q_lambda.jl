@@ -29,6 +29,8 @@ LOSS_REWARD = parse(Float64, arguments["loss"])
 EPSILON = ϵ
 λ = parse(Float64, arguments["lambda"])
 num_runs = parse(Int64, arguments["trials"])
+start = arguments["start"]
+hist = arguments["hist"]
 testing = false
 epochsize = 500
 burn_in_length = 15
@@ -64,6 +66,21 @@ open(header_filename, "w") do f
     write(f, header_string)
 end
 
+
+if start != "false"
+    df_start = CSV.read(start, DataFrame)
+    num_starts = ncol(df_start)
+    start = df_start[!, 1]
+    println("Running ", num_starts, " starting points.")
+end
+if hist != "false"
+    println("using course change history")
+    df_hist = CSV.read(hist, DataFrame)
+    hist = df_hist[!,1]
+end
+
+println("start: ", start)
+
 run_data = []
 
 #cumulative collisions, losses, and number of trials
@@ -75,6 +92,8 @@ total_reward = 0
 best_average = 1
 
 run_times = []
+hist_out = []
+crs_out = []
 # q-lambda algorithm trials
 for i in 1:num_runs
     run_start_time = now()
@@ -85,19 +104,31 @@ for i in 1:num_runs
     global total_reward,  best_average
     global θ
     if variance_enabled
-        result = q_trial()
+        result = q_trial(start=start, hist=hist)
     else
         result = q_trial_no_variance()
+        print("histories inactive")
     end
 
-    cum_coll += result[1]
+    if result[1] > 0
+        collision = 1
+    else
+        collision = 0
+    end
+    cum_coll += collision
     cum_loss += result[2]
     reward = result[4]
+    state_hist = result[5]
+    crs_hist = result[6]
     total_reward += reward
     cum_trials += 1
 
+
+
     θ = result[3]
     push!(run_data,result[1:2])
+    crs_out = [crs_hist]
+    hist_out = state_hist
 
     if ((cum_coll+cum_loss)/cum_trials < best_average) && cum_trials > 40
         best_average = (cum_coll+cum_loss)/cum_trials
@@ -132,7 +163,8 @@ for i in 1:num_runs
         println("===============================================================\n")
 
     end
-
+    CSV.write(string(results_dir, start, "_run_", i,"_hist.csv"), DataFrame([h for h in hist_out]))
+    CSV.write(string(results_dir, start, "_run_", i,"_crs.csv"), DataFrame([h for h in crs_out]))
 
     #used for variable epsilon-greedy strategy only
     #ϵ = max(min(.8, (cum_coll+cum_loss)/i),.005)
@@ -140,4 +172,5 @@ end
 
 weights_frame = DataFrame(θ)
 CSV.write(outfile, weights_frame)
+
 #

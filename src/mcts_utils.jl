@@ -90,7 +90,9 @@ function next_crs_gen(crs,rng)
 end
 
 # returns new state given last state and action (control)
-function f(state, control, rng)
+# normal operation if crs is false
+# takes crs and reports if crs is not false
+function f(state, control, rng; input_crs="no", report_crs=false)
     TGT_SPD = 1
     r, θ, crs, spd = state
     spd = control[2]
@@ -99,6 +101,17 @@ function f(state, control, rng)
     θ -= control[1]
     θ = θ % 360
     if θ < 0 θ += 360 end
+
+    old_crs = crs
+
+    if input_crs == "no"
+        crs = next_crs(crs,rng)
+    else
+        crs = (crs + input_crs) % 360
+        if crs < 0 crs += 360 end
+    end
+    output_crs = (crs - old_crs) % 360
+    if output_crs < 0 output_crs += 360 end
 
     crs = crs % 360
     crs -= control[1]
@@ -110,12 +123,16 @@ function f(state, control, rng)
 
     pos = [x + TGT_SPD*cos(π/180*crs) - spd, y +
         TGT_SPD*sin(π/180*crs)]
-    crs = next_crs(crs,rng)
+    #crs = next_crs(crs,rng)
 
     r = sqrt(pos[1]^2 + pos[2]^2)
     θ = atan(pos[1],pos[2])*180/π
     if θ < 0 θ += 360 end
-    return (r, θ, crs, spd)::NTuple{4, Real}
+
+    if report_crs == false
+        return (r, θ, crs, spd)::NTuple{4, Real}
+    end
+        return (r, θ, crs, spd, output_crs)::NTuple{5, Real}
 end
 
 # deprecated  - idential to f(state, control, rng)
@@ -169,8 +186,8 @@ function r(s)
 end
 
 #same as f, except returns a list
-function f2(x, u, rng)
-    temp = [i for i in f(x, u, rng)]
+function f2(x, u, rng; input_crs="no", report_crs=false)
+    temp = [i for i in f(x, u, rng, input_crs=input_crs, report_crs=report_crs)]
     return temp
 end
 
@@ -399,6 +416,7 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
     pfilter = SIRParticleFilter(model, num_particles)
     action_hist = []
     state_hist = []
+    crs_hist = []
 
     # true state
     # state is [range, bearing, relative course, own speed]
@@ -468,17 +486,20 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
 
         # take action; get next true state, obs, and reward
         if hist == false || hist == "false"
-            next_state = f2(true_state, action, rng)
+            next_state = f2(true_state, action, rng, report_crs=true)
             #println("random next state: ", next_state)
         else
-            next_state = hist[!, time_step + 1]
+            next_state = f2(true_state, action, rng, input_crs=hist[time_step], report_crs=true)
             #println("next state: ", next_state)
         end
+        push!(crs_hist, next_state[5])
+        next_state = next_state[1:4]
 
         observation = h(next_state, rng)
         reward = r(Tuple(next_state), action_to_index(action))
         true_state = next_state
         push!(state_hist, true_state)
+
 
         # update belief state (particle filter)
         belief = update(pfilter, belief, action, observation)
@@ -497,7 +518,7 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
     if true_state[1] > 150
         total_loss = 1
     end
-    return (total_reward, false, total_col, total_loss, start, action_hist, state_hist)
+    return (total_reward, false, total_col, total_loss, start, action_hist, state_hist, crs_hist)
 
 end
 

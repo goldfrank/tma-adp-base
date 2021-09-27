@@ -49,8 +49,9 @@ if start != "false"
     println("Running ", num_starts, " starting points.")
 end
 if hist != "false"
+    println("using course change history")
     df_hist = CSV.read(hist, DataFrame)
-    hist = df_hist
+    hist = df_hist[!,1]
 end
 
 println("start: ", start)
@@ -61,7 +62,6 @@ header_filename = string(results_dir, global_start_time, "_header.txt")
 open(header_filename, "w") do f
     write(f, header_string)
 end
-
 
 
 #cumulative collisions, losses, and number of trials
@@ -95,10 +95,12 @@ for j in 1:num_starts
         mcts_loss += result[4]
         start_out = result[5]
         hist_out = result[7]
+        crs_out = [result[8]]
         print(".")
         push!(run_times, (now()-run_start_time).value)
+        push!(run_data, (mcts_coll, mcts_loss))
         CSV.write(string(results_dir, start, "_run_", i,"_hist.csv"), DataFrame([h for h in hist_out]))
-        #CSV.write(string(results_dir, "run", i,"_start.csv"), DataFrame(transpose(start_out)))
+        CSV.write(string(results_dir, start, "_run_", i,"_crs.csv"), DataFrame([h for h in crs_out]))
         if i == num_runs # || i % 10 == 10
             println()
             println("==============================")
