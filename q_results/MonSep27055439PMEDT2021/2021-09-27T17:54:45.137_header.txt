@@ -1,0 +1,9 @@
+Q-Lambda Run: 2021-09-27T17:54:45.137
+Lambda: 0.95
+Gamma: 0.95
+Alpha: 0.7
+N: 250
+Collision Reward: -2.0
+Loss Reward: -2.0
+Variance: true
+Average Runtime: 2579.4335135135134

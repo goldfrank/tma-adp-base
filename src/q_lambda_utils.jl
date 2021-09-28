@@ -29,13 +29,13 @@ function parse_commandline()
             default = "0.9"
         "--alpha"
             help = ""
-            default = "0.9"
+            default = "0.7"
         "--gamma"
             help = ""
             default = "0.9"
         "--epsilon"
             help = ""
-            default = "0.05"
+            default = "0.1"
         "--collision"
             help = ""
             default = "-2"
@@ -107,17 +107,6 @@ function f(state, control, rng; input_crs="no", report_crs=false)
     θ = θ % 360
     if θ < 0 θ += 360 end
 
-    old_crs = crs
-
-    if input_crs == "no"
-        crs = next_crs(crs,rng)
-    else
-        crs = (crs + input_crs) % 360
-        if crs < 0 crs += 360 end
-    end
-    output_crs = (crs - old_crs) % 360
-    if output_crs < 0 output_crs += 360 end
-
     crs = crs % 360
     crs -= control[1]
     if crs < 0 crs += 360 end
@@ -128,10 +117,23 @@ function f(state, control, rng; input_crs="no", report_crs=false)
 
     pos = [x + TGT_SPD*cos(π/180*crs) - spd, y +
         TGT_SPD*sin(π/180*crs)]
-    #crs = next_crs(crs,rng)
+
+
+    old_crs = copy(crs)
+
+    if input_crs == "no"
+        crs = next_crs(crs,rng)
+    else
+        println("input crs")
+        crs = (crs + input_crs) % 360
+        if crs < 0 crs += 360 end
+    end
+
+    output_crs = (crs - old_crs) % 360
+    if output_crs < 0 output_crs += 360 end
 
     r = sqrt(pos[1]^2 + pos[2]^2)
-    θ = atan(pos[1],pos[2])*180/π
+    θ = atan(pos[2],pos[1])*180/π
     if θ < 0 θ += 360 end
 
     if report_crs == false
@@ -151,6 +153,8 @@ function f_gen(state, control, rng)
     θ -= control[1]
     θ = θ % 360
     if θ < 0 θ += 360 end
+
+
 
     crs = crs % 360
     crs -= control[1]
@@ -201,6 +205,7 @@ end
 ###########################################
 totals = [0.0]
 
+
 function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
     burn_in_length=burn_in_length; start=false, hist=false)
     state_hist = []
@@ -208,9 +213,7 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
     e = sparse(zeros(length(grid),6))
 
     if start == false || start == "false"
-        println("Using random starting state")
-        true_state = [rand(rng, 25:100), rand(rng,0:359), rand(rng,0:11)*30, 1]
-        start = copy(true_state)
+        true_state = [rand(rng, 30:135), rand(rng,0:359), rand(rng,0:11)*30, 1]
     else
         true_state = copy(start)
     end
@@ -224,11 +227,10 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
     b = ParticleCollection([x[1:4] for i in 1:N])
     ξ = sparse(weighted_grid_2(b)/N)
     particle_collection = []
+    starting_x = x
+
     action_hist = []
     state_hist = []
-
-
-    starting_x = x
 
     cur = 0
     last = 0
@@ -250,13 +252,13 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         rew = r(Tuple(xp),u)
         #b = update(pfilter, b, actions()[u], y)
 
-        if hist == false || hist == "false"
+        #if hist == false || hist == "false"
             next_state = f2(x, actions()[u], rng, report_crs=true)
             #println("random next state: ", next_state)
-        else
-            next_state = f2(x, actions()[u], rng, input_crs=hist[i+1], report_crs=true)
+        #else
+        #    next_state = f2(x, actions()[u], rng, input_crs=hist[i+1], report_crs=true)
             #println("next state: ", next_state)
-        end
+        #end
         push!(crs_hist, next_state[5])
         xp = next_state[1:4]
 
@@ -292,18 +294,13 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         θ += α * δ * e
         e *= λ*γ
 
-        #should this be here??
         last = transpose(θ[:,uu[1]])*ξ
 
         x = xp
         push!(state_hist, copy(x))
 
-        if length(particles(b)) != N
-            println("PARTICLE FILTER SIZE ERROR: ", length(particles(b)))
-        end
-
         if xp[1] < 10
-            zoof = 1
+            collisions = 1
         end
 
         i += 1
@@ -312,7 +309,7 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         #     counter = true
         # end
     end
-    collisions += zoof
+
     if xp[1] > 160
         loss = 1
     end
@@ -323,7 +320,7 @@ end
 function q_trial_no_variance(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
     burn_in_length=burn_in_length)
     e = sparse(zeros(length(grid),6))
-    x = [rand(rng, 30:135), rand(rng,0:359), rand(rng,0:11)*30, 1];
+    x = [rand(rng, 45:125), rand(rng,0:359), rand(rng,0:11)*30, 1];
     xp = x
     y = h(xp, rng)
     b = ParticleCollection([x[1:4] for i in 1:N])
