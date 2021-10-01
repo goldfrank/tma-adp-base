@@ -94,82 +94,88 @@ best_average = 1
 
 run_times = []
 # q-lambda algorithm trials
-for i in 1:num_runs
-    run_start_time = now()
-    global ϵ, EPSILON
-    global variance_enabled
-    global testing
-    global cum_coll, cum_loss, cum_trials, run_data, cum_outcome
-    global total_reward,  best_average
-    global θ
-    if variance_enabled
-        result = q_trial()
-        print(".")
-    else
-        result = q_trial_no_variance()
-        println("histories inactive")
+for j in 1:num_starts
+    global start
+    if start != "false"
+        start = df_start[!, j]
+        println("Starting point ", j, " of ", num_starts, ": ", start)
     end
-
-    cum_coll += result[1]
-    cum_loss += result[2]
-    reward = result[4]
-    state_hist = result[5]
-    crs_hist = result[6]
-    total_reward += reward
-    cum_trials += 1
-
-    if result[1] == 1 || result[2] == 1
-        cum_outcome += 1
-    end
-
-
-    θ = result[3]
-    push!(run_data,result[1:2])
-    crs_out = [crs_hist]
-    hist_out = state_hist
-
-    if ((cum_outcome)/cum_trials < best_average) && cum_trials > 40
-        best_average = (cum_outcome)/cum_trials
-    end
-
-    if cum_trials % 20 == 0 && false
-        println("Current Score: ", (cum_coll+cum_loss)/cum_trials)
-        println("θ Max: ", maximum(θ), " -- θ Min: ", minimum(θ))
-    end
-
-    push!(run_times, (now()-run_start_time).value)
-    if i % 5 == 0
-        weights_frame = DataFrame(θ)
-        CSV.write(outfile, weights_frame)
-        namefile = string(results_dir, global_start_time, "_data.csv")
-        #CSV.write(namefile, DataFrame(run_data))
-        updated_header = string(header_string, "\nAverage Runtime: ", mean(run_times))
-        CSV.write(namefile, DataFrame(run_data))
-        open(header_filename, "w") do f
-            write(f, updated_header)
+    for i in 1:num_runs
+        run_start_time = now()
+        global ϵ, EPSILON
+        global variance_enabled
+        global testing
+        global cum_coll, cum_loss, cum_trials, run_data, cum_outcome
+        global total_reward,  best_average
+        global θ
+        if variance_enabled
+            result = q_trial()
+            print(".")
+        else
+            result = q_trial_no_variance()
+            println("histories inactive")
         end
 
+        cum_coll += result[1]
+        cum_loss += result[2]
+        reward = result[4]
+        state_hist = result[5]
+        crs_hist = result[6]
+        total_reward += reward
+        cum_trials += 1
+
+        if result[1] == 1 || result[2] == 1
+            cum_outcome += 1
+        end
+
+
+        θ = result[3]
+        push!(run_data,result[1:2])
+        crs_out = [crs_hist]
+        hist_out = state_hist
+
+        if ((cum_outcome)/cum_trials < best_average) && cum_trials > 40
+            best_average = (cum_outcome)/cum_trials
+        end
+
+        if cum_trials % 20 == 0 && false
+            println("Current Score: ", (cum_coll+cum_loss)/cum_trials)
+            println("θ Max: ", maximum(θ), " -- θ Min: ", minimum(θ))
+        end
+
+        push!(run_times, (now()-run_start_time).value)
+        if i % 5 == 0
+            weights_frame = DataFrame(θ)
+            CSV.write(outfile, weights_frame)
+            namefile = string(results_dir, global_start_time, "_data.csv")
+            #CSV.write(namefile, DataFrame(run_data))
+            updated_header = string(header_string, "\nAverage Runtime: ", mean(run_times))
+            CSV.write(namefile, DataFrame(run_data))
+            open(header_filename, "w") do f
+                write(f, updated_header)
+            end
+
+        end
+
+        if i % 20 == 0 || i == num_runs
+            println("\n======================= MODEL STATUS ==========================")
+            println("Round: ", i, " Best Average: ", round(best_average, sigdigits=4))
+            println("Current Average: ", round(cum_outcome/cum_trials, sigdigits=4))
+            println("Current Collison Rate: ", round((cum_coll)/cum_trials, sigdigits=4), " -- Col. Reward: ", COLLISION_REWARD)
+            println("Current Loss Rate: ", round((cum_loss)/cum_trials, sigdigits=4), " -- Loss Reward: ", LOSS_REWARD)
+            println("ϵ: ", ϵ, " α: ", α, " γ: ", γ, " λ: ", λ, " N: ", N)
+            println("θ Max: ", maximum(θ), " -- θ Min: ", minimum(θ))
+            println("===============================================================\n")
+
+        end
+        #CSV.write(string(results_dir, start, "_run_", i,"_hist.csv"), DataFrame([h for h in hist_out]))
+        #CSV.write(string(results_dir, start, "_run_", i,"_crs.csv"), DataFrame([h for h in crs_out]))
+
+        #used for variable epsilon-greedy strategy only
+        #ϵ = max(min(.8, (cum_coll+cum_loss)/i),.005)
     end
 
-    if i % 20 == 0
-        println("\n======================= MODEL STATUS ==========================")
-        println("Round: ", i, " Best Average: ", round(best_average, sigdigits=4))
-        println("Current Average: ", round(cum_outcome/cum_trials, sigdigits=4))
-        println("Current Collison Rate: ", round((cum_coll)/cum_trials, sigdigits=4), " -- Col. Reward: ", COLLISION_REWARD)
-        println("Current Loss Rate: ", round((cum_loss)/cum_trials, sigdigits=4), " -- Loss Reward: ", LOSS_REWARD)
-        println("ϵ: ", ϵ, " α: ", α, " γ: ", γ, " λ: ", λ, " N: ", N)
-        println("θ Max: ", maximum(θ), " -- θ Min: ", minimum(θ))
-        println("===============================================================\n")
-
-    end
-    #CSV.write(string(results_dir, start, "_run_", i,"_hist.csv"), DataFrame([h for h in hist_out]))
-    #CSV.write(string(results_dir, start, "_run_", i,"_crs.csv"), DataFrame([h for h in crs_out]))
-
-    #used for variable epsilon-greedy strategy only
-    #ϵ = max(min(.8, (cum_coll+cum_loss)/i),.005)
+    weights_frame = DataFrame(θ)
+    CSV.write(outfile, weights_frame)
 end
-
-weights_frame = DataFrame(θ)
-CSV.write(outfile, weights_frame)
-
 #
