@@ -81,6 +81,7 @@ mcts_loss = 0
 mcts_coll = 0
 run_times = []
 result = []
+mcts_error = 0
 for j in 1:num_starts
     global start
     if start != "false"
@@ -89,10 +90,13 @@ for j in 1:num_starts
     end
     for i = 1:num_runs
         run_start_time = now()
-        global mcts_loss, mcts_coll, num_particles, DEPTH, hist, result
+        global mcts_error, mcts_loss, mcts_coll, num_particles, DEPTH, hist, result
         result = mcts_trial(DEPTH, c, num_particles, lambda, start=start, hist=hist)
         mcts_coll += result[3]
         mcts_loss += result[4]
+        if result[3] + result[4] > 0
+            mcts_error += 1
+        end
         start_out = result[5]
         hist_out = result[7]
         crs_out = [result[8]]
@@ -101,12 +105,13 @@ for j in 1:num_starts
         push!(run_data, (mcts_coll, mcts_loss))
         CSV.write(string(results_dir, start, "_run_", i,"_hist.csv"), DataFrame([h for h in hist_out]))
         CSV.write(string(results_dir, start, "_run_", i,"_crs.csv"), DataFrame([h for h in crs_out]))
-        if i == num_runs # || i % 10 == 10
+        if i % 50 == 0
             println()
             println("==============================")
             println("Trials: ", i)
             println("NUM PARTICLES: ", num_particles)
             println("MCTS Depth ", DEPTH, " Results")
+            println("Total Error: ", mcts_error/i)
             println("Collision Rate: ", mcts_coll/i)
             println("Loss Rate: ", mcts_loss/i)
             println("==============================")

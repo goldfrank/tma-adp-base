@@ -211,17 +211,16 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
     state_hist = []
     crs_hist = []
     e = sparse(zeros(length(grid),6))
-
+    # println("start input: ", start)
     if start == false || start == "false"
         true_state = [rand(rng, 30:135), rand(rng,0:359), rand(rng,0:11)*30, 1]
     else
         true_state = copy(start)
     end
-    push!(state_hist, true_state)
-
+    push!(state_hist, copy(true_state))
 
     x = true_state
-
+    #println("starting state: ", x)
     xp = x
     y = h(xp, rng)
     b = ParticleCollection([x[1:4] for i in 1:N])
@@ -231,7 +230,7 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
 
     action_hist = []
     state_hist = []
-
+    crs_hist = []
     cur = 0
     last = 0
     uu = next_action([transpose(θ[:,j])*ξ for j in 1:size(θ)[2]], ϵ, rng)
@@ -252,13 +251,13 @@ function q_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
         rew = r(Tuple(xp),u)
         #b = update(pfilter, b, actions()[u], y)
 
-        #if hist == false || hist == "false"
+        if hist == false || hist == "false"
             next_state = f2(x, actions()[u], rng, report_crs=true)
-            #println("random next state: ", next_state)
-        #else
-        #    next_state = f2(x, actions()[u], rng, input_crs=hist[i+1], report_crs=true)
-            #println("next state: ", next_state)
-        #end
+            # println("random next state: ", next_state)
+        else
+           next_state = f2(x, actions()[u], rng, input_crs=hist[i+1], report_crs=true)
+            # println("next state: ", next_state)
+        end
         push!(crs_hist, next_state[5])
         xp = next_state[1:4]
 
@@ -407,8 +406,7 @@ function q_trial_no_variance(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, 
 end
 
 # trial with random actions - for calibration only
-function simple_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, N=N,
-    burn_in_length=burn_in_length, quant = QUANTILE, action=DETERM_ACTION)
+function simple_trial(trial_length = epochsize; action = "rand")
     e = sparse(zeros(4,6))
     x = [rand(rng, 25:135), rand(rng,0:359), rand(rng,0:11)*30, 1];
     xp = x
@@ -422,7 +420,11 @@ function simple_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, 
 
     cur = 0
     last = 0
-    u = rand(rng, 1:6)
+    if action == "rand"
+        u = rand(rng, 1:6)
+    else
+        u = action
+    end
     uu = [u, 1, u]
     collision_list = []
     loss_list = []
@@ -442,44 +444,12 @@ function simple_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, 
         y = h(xp, rng)
 
 
-        #b = update(pfilter, b, actions()[u], y)
 
-        #update N(s,a) with state (t) weights
-        e[:,u] += ξ
-        old_u = u
-
-        # choose next action
-        #uu = next_action([transpose(θ[:,j])*ξ for j in 1:size(θ)[2]], ϵ, rng)
         u = rand(rng, 1:6)
-        uu = [u, 1, u]
 
-        #u = trunc(Int64,uu[1])
-
-        #b = update(pfilter, b, actions()[u], y)
-
-        #reset eligibility trace if action is random
-        if uu[2] == 1
-            e = sparse(zeros(4,6))
-            e[:,old_u] += ξ
-        end
-
-        #ξ is belief state at (t+1)
-        #ξ = sparse(weighted_grid_2(b)/N)
-        ξ = zeros(4)
-        ξ[y+1] = 1
-
-        #intermediate math
-        cur = transpose(θ[:,uu[3]])*ξ #NOT the argmax!!
-        δ = rew + γ * cur - last
-        #last = transpose(θ[:,uu[1]])*ξ
 
         cum_rew += rew
-        θ += α * δ * e
-        e *= λ*γ
 
-        #should this be here??
-        last = transpose(θ[:,uu[1]])*ξ
-        #last = cur
 
         x = xp
 
@@ -493,7 +463,7 @@ function simple_trial(θ=θ,trial_length=epochsize, λ=λ, α=α, γ=γ, ϵ=ϵ, 
         loss = 1
     end
 
-    return (collisions, loss, θ, cum_rews)
+    return (collisions, loss, θ, false)
 end
 
 #

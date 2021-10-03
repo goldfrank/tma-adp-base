@@ -31,6 +31,7 @@ EPSILON = ϵ
 num_runs = parse(Int64, arguments["trials"])
 start = arguments["start"]
 hist = arguments["hist"]
+determ = arguments["determ"]
 testing = false
 epochsize = 500
 burn_in_length = 15
@@ -59,7 +60,14 @@ header_string = string(header_string, "\n", "N: ", N)
 header_string = string(header_string, "\n", "Collision Reward: ", COLLISION_REWARD)
 header_string = string(header_string, "\n", "Loss Reward: ", LOSS_REWARD)
 header_string = string(header_string, "\n", "Variance: ", variance_enabled)
+if !(determ == false || determ == "false")
+    header_string = string(header_string, "\n", "DETERMINISTIC: ", determ)
+    if determ != "rand"
+        determ = parse(Int64, arguments["determ"])
+    end
+end
 
+println("Deterministic: ", determ)
 #write output header
 header_filename = string(results_dir, global_start_time, "_header.txt")
 open(header_filename, "w") do f
@@ -72,6 +80,8 @@ if start != "false"
     num_starts = ncol(df_start)
     start = df_start[!, 1]
     println("Running ", num_starts, " starting points.")
+else
+    num_starts = 1
 end
 if hist != "false"
     println("using course change history")
@@ -106,22 +116,33 @@ for j in 1:num_starts
         global variance_enabled
         global testing
         global cum_coll, cum_loss, cum_trials, run_data, cum_outcome
-        global total_reward,  best_average
+        global total_reward,  best_average, start
         global θ
-        if variance_enabled
-            result = q_trial()
+        if variance_enabled && (determ == false || determ == "false")
+            result = q_trial(θ,epochsize, λ, α, γ, ϵ, N,
+                burn_in_length; start=start)
             print(".")
-        else
+        elseif (determ == false || determ == "false")
             result = q_trial_no_variance()
             println("histories inactive")
+        else
+            result = simple_trial(action=determ)
         end
 
         cum_coll += result[1]
         cum_loss += result[2]
-        reward = result[4]
-        state_hist = result[5]
-        crs_hist = result[6]
-        total_reward += reward
+        if (determ == false || determ == "false")
+            reward = result[4]
+            state_hist = result[5]
+            # crs_hist = result[6]
+            total_reward += reward
+            hist_out = result[6]
+            crs_out = [hist_out]
+            hist_out = state_hist
+            CSV.write(string(results_dir, start, "_run_", i,"_hist.csv"), DataFrame([h for h in hist_out]))
+        else
+            total_reward = 0
+        end
         cum_trials += 1
 
         if result[1] == 1 || result[2] == 1
@@ -131,8 +152,7 @@ for j in 1:num_starts
 
         θ = result[3]
         push!(run_data,result[1:2])
-        crs_out = [crs_hist]
-        hist_out = state_hist
+
 
         if ((cum_outcome)/cum_trials < best_average) && cum_trials > 40
             best_average = (cum_outcome)/cum_trials
@@ -157,7 +177,7 @@ for j in 1:num_starts
 
         end
 
-        if i % 20 == 0 || i == num_runs
+        if i % 200 == 0 || i == num_runs
             println("\n======================= MODEL STATUS ==========================")
             println("Round: ", i, " Best Average: ", round(best_average, sigdigits=4))
             println("Current Average: ", round(cum_outcome/cum_trials, sigdigits=4))
@@ -165,10 +185,11 @@ for j in 1:num_starts
             println("Current Loss Rate: ", round((cum_loss)/cum_trials, sigdigits=4), " -- Loss Reward: ", LOSS_REWARD)
             println("ϵ: ", ϵ, " α: ", α, " γ: ", γ, " λ: ", λ, " N: ", N)
             println("θ Max: ", maximum(θ), " -- θ Min: ", minimum(θ))
+            println("Deterministic: ", determ)
             println("===============================================================\n")
 
         end
-        #CSV.write(string(results_dir, start, "_run_", i,"_hist.csv"), DataFrame([h for h in hist_out]))
+
         #CSV.write(string(results_dir, start, "_run_", i,"_crs.csv"), DataFrame([h for h in crs_out]))
 
         #used for variable epsilon-greedy strategy only

@@ -422,7 +422,6 @@ function mcts_trial(depth, c, num_particles=num_particles, lambda=0.95, iteratio
     # state is [range, bearing, relative course, own speed]
     # assume a starting position within range of sensor and not too close
     if start == false || start == "false"
-        println("Using random starting state")
         true_state = [rand(rng, 25:100), rand(rng,0:359), rand(rng,0:11)*30, 1]
         start = copy(true_state)
     else
